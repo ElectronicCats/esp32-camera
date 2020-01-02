@@ -125,7 +125,6 @@ static int write_addr_reg(uint8_t slv_addr, const uint16_t reg, uint16_t x_value
 
 static int reset(sensor_t *sensor)
 {
-    const uint16_t (*regs)[2];
     // Reset all registers
     write_reg(sensor->slv_addr, 0x3008, 0x42);
     // Delay 10 ms
