@@ -338,6 +338,14 @@ static int get_rgb_gain_db(sensor_t *sensor, float *r_gain_db, float *g_gain_db,
 
 static int set_hmirror(sensor_t *sensor, int enable)
 {
+    int ret = 0;
+    sensor->status.hmirror = enable;
+    ret = set_image_options(sensor);
+    if (ret == 0) {
+        ESP_LOGD(TAG, "Set h-mirror to: %d", enable);
+    }
+    return ret;
+    /*
     uint8_t reg;
     int ret = read_reg(sensor->slv_addr, 0x3821, &reg);
     if (enable){
