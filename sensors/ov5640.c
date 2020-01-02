@@ -257,14 +257,14 @@ static int set_image_options(sensor_t *sensor)
 static int set_framesize(sensor_t *sensor, framesize_t framesize)
 {
     int ret=0;
-    framesize_t old_framesize = sensor->status.framesize;
+    /*framesize_t old_framesize = sensor->status.framesize;
     sensor->status.framesize = framesize;
 
     if(framesize >= FRAMESIZE_INVALID){
         ESP_LOGE(TAG, "Invalid framesize: %u", framesize);
         return -1;
     }
-
+    */
     uint16_t w = resolution[framesize][0];
     uint16_t h = resolution[framesize][1];
 
@@ -275,12 +275,12 @@ static int set_framesize(sensor_t *sensor, framesize_t framesize)
 
     return ret;
 }
-
+/*
 static int set_framerate(sensor_t *sensor, framerate_t framerate)
 {
     return 0;
 }
-
+*/
 static int set_contrast(sensor_t *sensor, int level)
 {
     return 0;
@@ -364,13 +364,14 @@ static int set_vflip(sensor_t *sensor, int enable)
         ESP_LOGD(TAG, "Set v-flip to: %d", enable);
     }
     return ret;
+    */
 }
-
+/*
 static int set_special_effect(sensor_t *sensor, sde_t sde)
 {
     return 0;
 }
-
+*/
 static int set_lens_correction(sensor_t *sensor, int enable, int radi, int coef)
 {
     return 0;
