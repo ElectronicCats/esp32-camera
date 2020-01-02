@@ -20,6 +20,14 @@ config OV3660_SUPPORT
     help
         Enable this option if you want to use the OV3360.
         Disable this option to safe memory.
+
+config OV5640_SUPPORT
+	bool "OV5640 Support"
+	default y
+	help
+		Enable this option if you want to use the OV5640.
+		Disable this option to safe memory.
+
     
 config SCCB_HARDWARE_I2C
     bool "Use hardware I2C1 for SCCB"

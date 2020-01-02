@@ -43,6 +43,9 @@
 #if CONFIG_OV3660_SUPPORT
 #include "ov3660.h"
 #endif
+#if CONFIG_OV5640_SUPPORT
+#include "ov5640.h"
+#endif
 
 typedef enum {
     CAMERA_NONE = 0,
@@ -50,6 +53,7 @@ typedef enum {
     CAMERA_OV7725 = 7725,
     CAMERA_OV2640 = 2640,
     CAMERA_OV3660 = 3660,
+    CAMERA_OV5640 = 5640,
 } camera_model_t;
 
 #define REG_PID        0x0A
@@ -1042,6 +1046,12 @@ esp_err_t camera_probe(const camera_config_t* config, camera_model_t* out_camera
         ov3660_init(&s_state->sensor);
         break;
 #endif
+#if CONFIG_OV5640_SUPPORT
+    case OV5640_PID:
+        *out_camera_model = CAMERA_OV5640;
+        ov5640_init(&s_state->sensor);
+        break;
+#endif
     default:
         id->PID = 0;
         *out_camera_model = CAMERA_UNKNOWN;
@@ -1260,6 +1270,13 @@ esp_err_t esp_camera_init(const camera_config_t* config)
         ESP_LOGD(TAG, "Detected OV2640 camera");
     } else if (camera_model == CAMERA_OV3660) {
         ESP_LOGD(TAG, "Detected OV3660 camera");
+    } else if (camera_model == CAMERA_OV7670) {
+        ESP_LOGD(TAG, "Detected OV5640 camera");
+        if(config->pixel_format == PIXFORMAT_JPEG) {
+            ESP_LOGE(TAG, "Camera does not support JPEG");
+            err = ESP_ERR_CAMERA_NOT_SUPPORTED;
+            goto fail;
+        }
     } else {
         ESP_LOGE(TAG, "Camera not supported");
         err = ESP_ERR_CAMERA_NOT_SUPPORTED;
