@@ -338,7 +338,7 @@ static int get_rgb_gain_db(sensor_t *sensor, float *r_gain_db, float *g_gain_db,
 static int set_hmirror(sensor_t *sensor, int enable)
 {
     uint8_t reg;
-    int ret = write_reg(sensor->slv_addr, 0x3821, &reg);
+    int ret = read_reg(sensor->slv_addr, 0x3821, &reg);
     if (enable){
         ret |= write_reg(sensor->slv_addr, 0x3821, reg&0x06);
     } else {
@@ -353,11 +353,11 @@ static int set_hmirror(sensor_t *sensor, int enable)
 static int set_vflip(sensor_t *sensor, int enable)
 {
     uint8_t reg;
-    int ret = write_reg(sensor->slv_addr, 0x3820, &reg);
+    int ret = read_reg(sensor->slv_addr, 0x3820, &reg);
     if (enable){
         ret |= write_reg(sensor->slv_addr, 0x3820, reg&0xF9);
     } else {
-        ret |= cambus_write_regwriteb2(sensor->slv_addr, 0x3820, reg|0x06);
+        ret |= write_reg(sensor->slv_addr, 0x3820, reg|0x06);
     }
     if (ret == 0) {
         ESP_LOGD(TAG, "Set v-flip to: %d", enable);
