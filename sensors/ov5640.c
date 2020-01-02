@@ -357,11 +357,20 @@ static int set_hmirror(sensor_t *sensor, int enable)
         ESP_LOGD(TAG, "Set h-mirror to: %d", enable);
     }
     return ret;
+    */
 }
 
 static int set_vflip(sensor_t *sensor, int enable)
 {
-    uint8_t reg;
+    
+    int ret = 0;
+    sensor->status.vflip = enable;
+    ret = set_image_options(sensor);
+    if (ret == 0) {
+        ESP_LOGD(TAG, "Set v-flip to: %d", enable);
+    }
+    return ret;
+    /*uint8_t reg;
     int ret = read_reg(sensor->slv_addr, 0x3820, &reg);
     if (enable){
         ret |= write_reg(sensor->slv_addr, 0x3820, reg&0xF9);
