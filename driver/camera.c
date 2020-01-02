@@ -1270,7 +1270,7 @@ esp_err_t esp_camera_init(const camera_config_t* config)
         ESP_LOGD(TAG, "Detected OV2640 camera");
     } else if (camera_model == CAMERA_OV3660) {
         ESP_LOGD(TAG, "Detected OV3660 camera");
-    } else if (camera_model == CAMERA_OV7670) {
+    } else if (camera_model == CAMERA_OV5640) {
         ESP_LOGD(TAG, "Detected OV5640 camera");
         if(config->pixel_format == PIXFORMAT_JPEG) {
             ESP_LOGE(TAG, "Camera does not support JPEG");
