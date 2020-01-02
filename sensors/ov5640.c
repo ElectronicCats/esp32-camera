@@ -165,6 +165,8 @@ static int sleep(sensor_t *sensor, int enable)
 static int set_pixformat(sensor_t *sensor, pixformat_t pixformat)
 {
     int ret=0;
+    const uint16_t (*regs)[2] = 0;
+
     switch (pixformat) {
         case PIXFORMAT_RGB565:
             //write_reg(sensor->slv_addr, 0x4300, 0x61);//RGB565
