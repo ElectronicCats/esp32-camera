@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "sccb.h"
+#include "ov5640.h"
 #include "ov5640_regs.h"
 #include "ov5640_settings.h"
 #include "freertos/FreeRTOS.h"
