@@ -132,7 +132,7 @@ static int reset(sensor_t *sensor)
     vTaskDelay(10 / portTICK_PERIOD_MS);
     // Write default regsiters
     //for (i=0, regs = default_regs; regs[i][0]; i++) {
-    write_regs(sensor->slv_addr, sensor_default_regs);
+    write_regs(sensor->slv_addr, default_regs);
     //}
     write_reg(sensor->slv_addr, 0x3008, 0x02);
     vTaskDelay(30 / portTICK_PERIOD_MS);
