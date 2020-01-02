@@ -25,6 +25,7 @@ typedef enum {
     PIXFORMAT_RAW,       // RAW
     PIXFORMAT_RGB444,    // 3BP2P/RGB444
     PIXFORMAT_RGB555,    // 3BP2P/RGB555
+    PIXFORMAT_BAYER,
 } pixformat_t;
 
 typedef enum {
@@ -46,6 +47,14 @@ typedef enum {
 } framesize_t;
 
 typedef enum {
+    FRAMERATE_2FPS =0x9F,
+    FRAMERATE_8FPS =0x87,
+    FRAMERATE_15FPS=0x83,
+    FRAMERATE_30FPS=0x81,
+    FRAMERATE_60FPS=0x80,
+} framerate_t;
+
+typedef enum {
     GAINCEILING_2X,
     GAINCEILING_4X,
     GAINCEILING_8X,
@@ -54,6 +63,11 @@ typedef enum {
     GAINCEILING_64X,
     GAINCEILING_128X,
 } gainceiling_t;
+
+typedef enum {
+    SDE_NORMAL,
+    SDE_NEGATIVE,
+} sde_t;
 
 typedef struct {
     uint8_t MIDH;
@@ -102,8 +116,12 @@ typedef struct _sensor {
     // Sensor function pointers
     int  (*init_status)         (sensor_t *sensor);
     int  (*reset)               (sensor_t *sensor);
+    int  (*sleep)               (sensor_t *sensor, int enable);
+    int  (*read_reg)            (sensor_t *sensor, uint16_t reg_addr);
+    int  (*write_reg)           (sensor_t *sensor, uint16_t reg_addr, uint16_t reg_data);
     int  (*set_pixformat)       (sensor_t *sensor, pixformat_t pixformat);
     int  (*set_framesize)       (sensor_t *sensor, framesize_t framesize);
+    int  (*set_framerate)       (sensor_t *sensor, framerate_t framerate);
     int  (*set_contrast)        (sensor_t *sensor, int level);
     int  (*set_brightness)      (sensor_t *sensor, int level);
     int  (*set_saturation)      (sensor_t *sensor, int level);
@@ -115,8 +133,15 @@ typedef struct _sensor {
     int  (*set_whitebal)        (sensor_t *sensor, int enable);
     int  (*set_gain_ctrl)       (sensor_t *sensor, int enable);
     int  (*set_exposure_ctrl)   (sensor_t *sensor, int enable);
+    int  (*set_auto_gain)       (sensor_t *sensor, int enable, float gain_db, float gain_db_ceiling);
+    int  (*get_gain_db)         (sensor_t *sensor, float *gain_db);
+    int  (*set_auto_exposure)   (sensor_t *sensor, int enable, int exposure_us);
+    int  (*get_exposure_us)     (sensor_t *sensor, int *exposure_us);
+    int  (*set_auto_whitebal)   (sensor_t *sensor, int enable, float r_gain_db, float g_gain_db, float b_gain_db);
+    int  (*get_rgb_gain_db)     (sensor_t *sensor, float *r_gain_db, float *g_gain_db, float *b_gain_db);
     int  (*set_hmirror)         (sensor_t *sensor, int enable);
     int  (*set_vflip)           (sensor_t *sensor, int enable);
+    int  (*set_lens_correction) (sensor_t *sensor, int enable, int radi, int coef);
 
     int  (*set_aec2)            (sensor_t *sensor, int enable);
     int  (*set_awb_gain)        (sensor_t *sensor, int enable);

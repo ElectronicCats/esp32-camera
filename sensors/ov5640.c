@@ -274,24 +274,77 @@ static int set_framesize(sensor_t *sensor, framesize_t framesize)
 
     return ret;
 }
-/*
+
 static int set_framerate(sensor_t *sensor, framerate_t framerate)
 {
     return 0;
 }
-*/
+
 static int set_contrast(sensor_t *sensor, int level)
 {
+    uint8_t reg0val=0X00;
+	uint8_t reg1val=0X20;
+	switch(level)
+	{
+		case 0://-3
+			reg1val=reg0val=0x14;
+			break;
+		case 1://-2
+			reg1val=reg0val=0x18;
+			break;
+		case 2://-1
+			reg1val=reg0val=0x1C;
+			break;
+		case 4://1
+			reg0val=0x10;
+			reg1val=0x24;
+			break;
+		case 5://2
+			reg0val=0x18;
+			reg1val=0x28;
+			break;
+		case 6://3
+			reg0val=0x1C;
+			reg1val=0x2C;
+			break;
+	}
+	write_reg(sensor->slv_addr, 0x3212,0x03); //start group 3
+	write_reg(sensor->slv_addr, 0x5585,reg0val);
+	write_reg(sensor->slv_addr, 0x5586,reg1val);
+	write_reg(sensor->slv_addr, 0x3212,0x13); //end group 3
+	write_reg(sensor->slv_addr, 0x3212,0xa3); //launch group 3
+    
     return 0;
 }
 
 static int set_brightness(sensor_t *sensor, int level)
 {
+    uint8_t brtval;
+	if(level<4)brtval=4-level;
+	else brtval=level-4;
+	write_reg(sensor->slv_addr, 0x3212,0x03);	//start group 3
+	write_reg(sensor->slv_addr, 0x5587,brtval<<4);
+	if(level<4)write_reg(sensor->slv_addr, 0x5588,0x09);
+	else write_reg(sensor->slv_addr, 0x5588,0x01);
+	write_reg(sensor->slv_addr, 0x3212,0x13); //end group 3
+	write_reg(sensor->slv_addr, 0x3212,0xa3); //launch group 3
     return 0;
 }
 
+// Color Saturation:
+//   sat:  0 - 6
 static int set_saturation(sensor_t *sensor, int level)
 {
+    uint8_t i;
+	write_reg(sensor->slv_addr, 0x3212,0x03);	//start group 3
+	write_reg(sensor->slv_addr, 0x5381,0x1c);
+	write_reg(sensor->slv_addr, 0x5382,0x5a);
+	write_reg(sensor->slv_addr, 0x5383,0x06);
+	for(i=0;i<6;i++)  write_reg(sensor->slv_addr, 0x5384+i,OV5640_SATURATION_TBL[level][i]);
+	write_reg(sensor->slv_addr, 0x538b, 0x98);
+	write_reg(sensor->slv_addr, 0x538a, 0x01);
+	write_reg(sensor->slv_addr, 0x3212, 0x13); //end group 3
+	write_reg(sensor->slv_addr, 0x3212, 0xa3); //launch group 3
     return 0;
 }
 
@@ -382,12 +435,19 @@ static int set_vflip(sensor_t *sensor, int enable)
     return ret;
     */
 }
-/*
-static int set_special_effect(sensor_t *sensor, sde_t sde)
+
+static int set_special_effect(sensor_t *sensor, int effect)
 {
+    write_reg(sensor->slv_addr, 0x3212,0x03); //start group 3
+	write_reg(sensor->slv_addr, 0x5580,OV5640_EFFECTS_TBL[effect][0]);
+	write_reg(sensor->slv_addr, 0x5583,OV5640_EFFECTS_TBL[effect][1]);// sat U
+	write_reg(sensor->slv_addr, 0x5584,OV5640_EFFECTS_TBL[effect][2]);// sat V
+	write_reg(sensor->slv_addr, 0x5003,0x08);
+	write_reg(sensor->slv_addr, 0x3212,0x13); //end group 3
+	write_reg(sensor->slv_addr, 0x3212,0xa3); //launch group 3
     return 0;
 }
-*/
+
 static int set_lens_correction(sensor_t *sensor, int enable, int radi, int coef)
 {
     return 0;
@@ -395,12 +455,11 @@ static int set_lens_correction(sensor_t *sensor, int enable, int radi, int coef)
 
 int ov3660_init(sensor_t *sensor)
 {
-
-    sensor->gs_bpp              = 1;
+    //sensor->gs_bpp              = 1;
     sensor->reset               = reset;
     sensor->sleep               = sleep;
-    sensor->read_reg            = read_reg;
-    sensor->write_reg           = write_reg;
+    //sensor->read_reg            = read_reg;
+    //sensor->write_reg           = write_reg;
     sensor->set_pixformat       = set_pixformat;
     sensor->set_framesize       = set_framesize;
     sensor->set_framerate       = set_framerate;
