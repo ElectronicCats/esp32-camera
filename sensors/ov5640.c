@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sccb.h"
-#include "ov3660.h"
-#include "ov3660_regs.h"
-#include "ov3660_settings.h"
+#include "ov5640.h"
+#include "ov5640_regs.h"
+#include "ov5640_settings.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -20,7 +20,7 @@
 #include "esp32-hal-log.h"
 #else
 #include "esp_log.h"
-static const char *TAG = "ov3660";
+static const char *TAG = "ov5640";
 #endif
 
 //#define REG_DEBUG_ON
@@ -54,6 +54,55 @@ static int read_reg16(uint8_t slv_addr, const uint16_t reg){
     return ret;
 }
 
+static void dump_reg(sensor_t *sensor, const uint16_t reg){
+    int v = SCCB_Read16(sensor->slv_addr, reg);
+    if(v < 0){
+        ets_printf("  0x%04x: FAIL[%d]\n", reg, v);
+    } else {
+        ets_printf("  0x%04x: 0x%02X\n", reg, v);
+    }
+}
+
+static void dump_range(sensor_t *sensor, const char * name, const uint16_t start_reg, const uint16_t end_reg){
+    ets_printf("%s: 0x%04x - 0x%04X\n", name, start_reg, end_reg);
+    for(uint16_t reg = start_reg; reg <= end_reg; reg++){
+        dump_reg(sensor, reg);
+    }
+}
+
+static void dump_regs(sensor_t *sensor){
+//    dump_range(sensor, "All Regs", 0x3000, 0x6100);
+//    dump_range(sensor, "system and IO pad control", 0x3000, 0x3052);
+//    dump_range(sensor, "SCCB control", 0x3100, 0x3108);
+//    dump_range(sensor, "SRB control", 0x3200, 0x3211);
+//    dump_range(sensor, "AWB gain control", 0x3400, 0x3406);
+//    dump_range(sensor, "AEC/AGC control", 0x3500, 0x350D);
+//    dump_range(sensor, "VCM control", 0x3600, 0x3606);
+//    dump_range(sensor, "timing control", 0x3800, 0x3821);
+//    dump_range(sensor, "AEC/AGC power down domain control", 0x3A00, 0x3A25);
+//    dump_range(sensor, "strobe control", 0x3B00, 0x3B0C);
+//    dump_range(sensor, "50/60Hz detector control", 0x3C00, 0x3C1E);
+//    dump_range(sensor, "OTP control", 0x3D00, 0x3D21);
+//    dump_range(sensor, "MC control", 0x3F00, 0x3F0D);
+//    dump_range(sensor, "BLC control", 0x4000, 0x4033);
+//    dump_range(sensor, "frame control", 0x4201, 0x4202);
+//    dump_range(sensor, "format control", 0x4300, 0x430D);
+//    dump_range(sensor, "JPEG control", 0x4400, 0x4431);
+//    dump_range(sensor, "VFIFO control", 0x4600, 0x460D);
+//    dump_range(sensor, "DVP control", 0x4709, 0x4745);
+//    dump_range(sensor, "MIPI control", 0x4800, 0x4837);
+//    dump_range(sensor, "ISP frame control", 0x4901, 0x4902);
+//    dump_range(sensor, "ISP top control", 0x5000, 0x5063);
+//    dump_range(sensor, "AWB control", 0x5180, 0x51D0);
+//    dump_range(sensor, "CIP control", 0x5300, 0x530F);
+//    dump_range(sensor, "CMX control", 0x5380, 0x538B);
+//    dump_range(sensor, "gamma control", 0x5480, 0x5490);
+//    dump_range(sensor, "SDE control", 0x5580, 0x558C);
+//    dump_range(sensor, "scale control", 0x5600, 0x5606);
+//    dump_range(sensor, "AVG control", 0x5680, 0x56A2);
+//    dump_range(sensor, "LENC control", 0x5800, 0x5849);
+//    dump_range(sensor, "AFC control", 0x6000, 0x603F);
+}
 
 static int write_reg(uint8_t slv_addr, const uint16_t reg, uint8_t value){
     int ret = 0;
@@ -122,7 +171,7 @@ static int write_addr_reg(uint8_t slv_addr, const uint16_t reg, uint16_t x_value
     return 0;
 }
 
-#define write_reg_bits(slv_addr, reg, mask, enable) set_reg_bits(slv_addr, reg, 0, mask, enable?mask:0)
+#define write_reg_bits(slv_addr, reg, mask, enable) set_reg_bits(slv_addr, reg, 0, mask, (enable)?(mask):0)
 
 static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier, int pll_sys_div, int pll_pre_div, bool pll_root_2x, int pll_seld5, bool pclk_manual, int pclk_div)
 {
@@ -133,16 +182,20 @@ static int calc_sysclk(int xclk, bool pll_bypass, int pll_multiplier, int pll_sy
         pll_sys_div = 1;
     }
 
-    int pll_pre_div2x = pll_pre_div2x_map[pll_pre_div];
-    int pll_root_div = pll_root_2x?2:1;
-    int pll_seld52x = pll_seld52x_map[pll_seld5];
+    unsigned int pll_pre_div2x = pll_pre_div2x_map[pll_pre_div];
+    unsigned int pll_root_div = pll_root_2x?2:1;
+    unsigned int pll_seld52x = pll_seld52x_map[pll_seld5];
 
-    int VCO = (xclk / 1000) * pll_multiplier * pll_root_div * 2 / pll_pre_div2x;
-    int PLLCLK = pll_bypass?(xclk):(VCO * 1000 * 2 / pll_sys_div / pll_seld52x);
-    int PCLK = PLLCLK / 2 / ((pclk_manual && pclk_div)?pclk_div:1);
-    int SYSCLK = PLLCLK / 4;
+    unsigned int REFIN = (xclk * 2) / pll_pre_div2x;
 
-    ESP_LOGD(TAG, "Calculated VCO: %d Hz, PLLCLK: %d Hz, SYSCLK: %d Hz, PCLK: %d Hz", VCO*1000, PLLCLK, SYSCLK, PCLK);
+    unsigned int VCO = REFIN * pll_multiplier * pll_root_div;
+
+    unsigned int PLL_CLK = pll_bypass?(xclk):(VCO * 2 / pll_sys_div / pll_seld52x);
+
+    unsigned int PCLK = PLL_CLK / 2 / ((pclk_manual && pclk_div)?pclk_div:1);
+    unsigned int SYSCLK = PLL_CLK / 4;
+
+    ESP_LOGD(TAG, "Calculated XVCLK: %d Hz, REFIN: %u Hz, VCO: %u Hz, PLL_CLK: %u Hz, SYSCLK: %u Hz, PCLK: %u Hz", xclk, REFIN, VCO, PLL_CLK, SYSCLK, PCLK);
     return SYSCLK;
 }
 
@@ -181,6 +234,8 @@ static int set_ae_level(sensor_t *sensor, int level);
 
 static int reset(sensor_t *sensor)
 {
+    //dump_regs(sensor);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
     int ret = 0;
     // Software Reset: clear all registers and reset them to their default values
     ret = write_reg(sensor->slv_addr, SYSTEM_CTROL0, 0x82);
@@ -192,7 +247,6 @@ static int reset(sensor_t *sensor)
     ret = write_regs(sensor->slv_addr, sensor_default_regs);
     if (ret == 0) {
         ESP_LOGD(TAG, "Camera defaults loaded");
-        ret = set_ae_level(sensor, 0);
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
     return ret;
@@ -258,12 +312,12 @@ static int set_image_options(sensor_t *sensor)
     }
 
     // binning
-    if (bining) {
+    if (!bining) {
+        reg20 |= 0x40;
+    } else {
         reg20 |= 0x01;
         reg21 |= 0x01;
         reg4514_test |= 4;
-    } else {
-        reg20 |= 0x40;
     }
 
     // V-Flip
@@ -281,9 +335,9 @@ static int set_image_options(sensor_t *sensor)
     switch (reg4514_test) {
         //no binning
         case 0: reg4514 = 0x88; break;//normal
-        case 1: reg4514 = 0x88; break;//v-flip
+        case 1: reg4514 = 0x00; break;//v-flip
         case 2: reg4514 = 0xbb; break;//h-mirror
-        case 3: reg4514 = 0xbb; break;//v-flip+h-mirror
+        case 3: reg4514 = 0x00; break;//v-flip+h-mirror
         //binning
         case 4: reg4514 = 0xaa; break;//normal
         case 5: reg4514 = 0xbb; break;//v-flip
@@ -309,24 +363,26 @@ static int set_framesize(sensor_t *sensor, framesize_t framesize)
     framesize_t old_framesize = sensor->status.framesize;
     sensor->status.framesize = framesize;
 
-    if(framesize > FRAMESIZE_QXGA){
+    if(framesize > FRAMESIZE_QSXGA){
         ESP_LOGE(TAG, "Invalid framesize: %u", framesize);
         return -1;
     }
     uint16_t w = resolution[framesize].width;
     uint16_t h = resolution[framesize].height;
-    aspect_ratio_t ratio = resolution[sensor->status.framesize].aspect_ratio;
+    aspect_ratio_t ratio = resolution[framesize].aspect_ratio;
     ratio_settings_t settings = ratio_table[ratio];
     bool bining = (w <= (settings.max_width / 2) && h <= (settings.max_height / 2));
+    bool scale = !((w == settings.max_width && h == settings.max_height)
+        || (w == (settings.max_width / 2) && h == (settings.max_height / 2)));
 
-    if (bining) {
+    if (!bining) {
+        ret  = write_reg(sensor->slv_addr, 0x4520, 0x10)
+            || write_reg(sensor->slv_addr, X_INCREMENT, 0x11)//odd:1, even: 1
+            || write_reg(sensor->slv_addr, Y_INCREMENT, 0x11);//odd:1, even: 1
+    } else {
         ret  = write_reg(sensor->slv_addr, 0x4520, 0x0b)
             || write_reg(sensor->slv_addr, X_INCREMENT, 0x31)//odd:3, even: 1
             || write_reg(sensor->slv_addr, Y_INCREMENT, 0x31);//odd:3, even: 1
-    } else {
-        ret  = write_reg(sensor->slv_addr, 0x4520, 0xb0)
-            || write_reg(sensor->slv_addr, X_INCREMENT, 0x11)//odd:1, even: 1
-            || write_reg(sensor->slv_addr, Y_INCREMENT, 0x11);//odd:1, even: 1
     }
 
     if (ret) {
@@ -341,16 +397,22 @@ static int set_framesize(sensor_t *sensor, framesize_t framesize)
         goto fail;
     }
 
-    if (bining) {
-        ret  = write_addr_reg(sensor->slv_addr, X_TOTAL_SIZE_H, settings.total_x, (settings.total_y / 2) + 1)
-            || write_addr_reg(sensor->slv_addr, X_OFFSET_H, 8, 2);
-    } else {
+    if (!bining) {
         ret  = write_addr_reg(sensor->slv_addr, X_TOTAL_SIZE_H, settings.total_x, settings.total_y)
-            || write_addr_reg(sensor->slv_addr, X_OFFSET_H, 16, 6);
+            || write_addr_reg(sensor->slv_addr, X_OFFSET_H, settings.offset_x, settings.offset_y);
+    } else {
+        if (w > 920) {
+            ret = write_addr_reg(sensor->slv_addr, X_TOTAL_SIZE_H, settings.total_x - 200, settings.total_y / 2);
+        } else {
+            ret = write_addr_reg(sensor->slv_addr, X_TOTAL_SIZE_H, 2060, settings.total_y / 2);
+        }
+        if (ret == 0) {
+            ret = write_addr_reg(sensor->slv_addr, X_OFFSET_H, settings.offset_x / 2, settings.offset_y / 2);
+        }
     }
 
     if (ret == 0) {
-        ret = write_reg_bits(sensor->slv_addr, ISP_CONTROL_01, 0x20, !(w == settings.max_width && h == settings.max_height));
+        ret = write_reg_bits(sensor->slv_addr, ISP_CONTROL_01, 0x20, scale);
     }
 
     if (ret == 0) {
@@ -362,13 +424,8 @@ static int set_framesize(sensor_t *sensor, framesize_t framesize)
     }
 
     if (sensor->pixformat == PIXFORMAT_JPEG) {
-        if (framesize == FRAMESIZE_QXGA) {
-            //40MHz SYSCLK and 10MHz PCLK
-            ret = set_pll(sensor, false, 24, 1, 3, false, 0, true, 8);
-        } else {
-            //50MHz SYSCLK and 10MHz PCLK
-            ret = set_pll(sensor, false, 30, 1, 3, false, 0, true, 10);
-        }
+        //ret = set_pll(sensor, false, 10, 1, 2, true, 0, true, 10);
+        ret = set_pll(sensor, false, 31, 1, 0, true, 0, true, 10);
     } else {
         if (framesize > FRAMESIZE_CIF) {
             //10MHz SYSCLK and 10MHz PCLK (6.19 FPS)
@@ -903,17 +960,6 @@ static int sensor_set_reg(sensor_t *sensor, int reg, int mask, int value){
 static int set_res_raw(sensor_t *sensor, int reg4520, int incrementX, int incrementY, int startX, int startY, int endX, int endY, int offsetX, int offsetY, int totalX, int totalY, int outputX, int outputY, bool scale, int reg20, int reg21, int reg4514)
 {
     int ret = 0;
-    
-    if(outputX > 800 || outputY > 600){
-        reg4520 = 0xb0;
-        incrementX = 0x11;
-        incrementY = 0x11;
-    } else {
-        reg4520 = 0x0b;
-        incrementX = 0x31;
-        incrementY = 0x31;
-    }
-    
     ret  = write_reg(sensor->slv_addr, 0x4520, reg4520)
         || write_reg(sensor->slv_addr, X_INCREMENT, incrementX)//odd:1, even: 1
         || write_reg(sensor->slv_addr, Y_INCREMENT, incrementY)//odd:1, even: 1
@@ -922,7 +968,10 @@ static int set_res_raw(sensor_t *sensor, int reg4520, int incrementX, int increm
         || write_addr_reg(sensor->slv_addr, X_OFFSET_H, offsetX, offsetY)
         || write_addr_reg(sensor->slv_addr, X_TOTAL_SIZE_H, totalX, totalY)
         || write_addr_reg(sensor->slv_addr, X_OUTPUT_SIZE_H, outputX, outputY)
-        || write_reg_bits(sensor->slv_addr, ISP_CONTROL_01, 0x20, scale);
+        || write_reg_bits(sensor->slv_addr, ISP_CONTROL_01, 0x20, scale)
+        || write_reg(sensor->slv_addr, TIMING_TC_REG20, reg20)
+        || write_reg(sensor->slv_addr, TIMING_TC_REG21, reg21)
+        || write_reg(sensor->slv_addr, 0x4514, reg4514);
     return ret;
 }
 
@@ -972,7 +1021,7 @@ static int init_status(sensor_t *sensor)
     return 0;
 }
 
-int ov3660_init(sensor_t *sensor)
+int ov5640_init(sensor_t *sensor)
 {
     sensor->reset = reset;
     sensor->set_pixformat = set_pixformat;
